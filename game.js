@@ -755,64 +755,89 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ─── D-Pad Joystick ───────────────────────────────────────────────────────────
+// ─── Floating Analog Joystick ─────────────────────────────────────────────────
 const joyCanvas = document.getElementById('joystickCanvas');
 const joyCtx = joyCanvas ? joyCanvas.getContext('2d') : null;
-const JOY_SIZE = 220;
-const JOY_CENTER = JOY_SIZE / 2;
-const JOY_ZONE = JOY_SIZE / 3; // dead-zone radius
+const JOY_W = joyCanvas ? joyCanvas.width  : 220;
+const JOY_H = joyCanvas ? joyCanvas.height : 220;
 
-function drawDpad() {
-  if (!joyCtx) return;
-  joyCtx.clearRect(0, 0, JOY_SIZE, JOY_SIZE);
+// Joystick state (in canvas logical pixels)
+const joy = { active: false, baseX: 0, baseY: 0, thumbX: 0, thumbY: 0 };
+const JOY_BASE_R  = 55;   // outer ring radius
+const JOY_THUMB_R = 28;   // thumb dot radius
+const JOY_DEAD    = 10;   // dead-zone in logical px
 
-  const cx = JOY_CENTER, cy = JOY_CENTER;
-  const r = JOY_SIZE / 2 - 4;
-  const arrowSize = 30;
-  const arrowPad = 18;
-
-  // Background circle
-  joyCtx.beginPath();
-  joyCtx.arc(cx, cy, r, 0, Math.PI * 2);
-  joyCtx.fillStyle = 'rgba(255,255,255,0.08)';
-  joyCtx.fill();
-  joyCtx.strokeStyle = 'rgba(255,255,255,0.2)';
-  joyCtx.lineWidth = 2;
-  joyCtx.stroke();
-
-  // Draw 4 arrow triangles
-  const arrows = [
-    { dir: 'UP',    ax: cx, ay: arrowPad + arrowSize/2,
-      pts: [[cx, arrowPad], [cx - arrowSize/2, arrowPad + arrowSize], [cx + arrowSize/2, arrowPad + arrowSize]] },
-    { dir: 'DOWN',  ax: cx, ay: JOY_SIZE - arrowPad - arrowSize/2,
-      pts: [[cx, JOY_SIZE - arrowPad], [cx - arrowSize/2, JOY_SIZE - arrowPad - arrowSize], [cx + arrowSize/2, JOY_SIZE - arrowPad - arrowSize]] },
-    { dir: 'LEFT',  ax: arrowPad + arrowSize/2, ay: cy,
-      pts: [[arrowPad, cy], [arrowPad + arrowSize, cy - arrowSize/2], [arrowPad + arrowSize, cy + arrowSize/2]] },
-    { dir: 'RIGHT', ax: JOY_SIZE - arrowPad - arrowSize/2, ay: cy,
-      pts: [[JOY_SIZE - arrowPad, cy], [JOY_SIZE - arrowPad - arrowSize, cy - arrowSize/2], [JOY_SIZE - arrowPad - arrowSize, cy + arrowSize/2]] },
-  ];
-
-  arrows.forEach(({ pts }) => {
-    joyCtx.beginPath();
-    joyCtx.moveTo(pts[0][0], pts[0][1]);
-    joyCtx.lineTo(pts[1][0], pts[1][1]);
-    joyCtx.lineTo(pts[2][0], pts[2][1]);
-    joyCtx.closePath();
-    joyCtx.fillStyle = 'rgba(255,255,0,0.7)';
-    joyCtx.fill();
-  });
+// Convert a CSS (client) point to logical canvas pixels,
+// accounting for CSS transform scaling.
+function clientToCanvas(clientX, clientY, rect) {
+  const scaleX = JOY_W / rect.width;
+  const scaleY = JOY_H / rect.height;
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top)  * scaleY,
+  };
 }
 
-function getDpadDir(touchX, touchY, rect) {
-  const x = touchX - rect.left - JOY_CENTER;
-  const y = touchY - rect.top  - JOY_CENTER;
-  if (Math.abs(x) < 10 && Math.abs(y) < 10) return null;
-  if (Math.abs(x) > Math.abs(y)) return x > 0 ? DIR.RIGHT : DIR.LEFT;
-  return y > 0 ? DIR.DOWN : DIR.UP;
+function dirFromDelta(dx, dy) {
+  if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? DIR.RIGHT : DIR.LEFT;
+  return dy > 0 ? DIR.DOWN : DIR.UP;
+}
+
+function drawJoystick() {
+  if (!joyCtx) return;
+  joyCtx.clearRect(0, 0, JOY_W, JOY_H);
+
+  if (joy.active) {
+    // Base ring
+    joyCtx.beginPath();
+    joyCtx.arc(joy.baseX, joy.baseY, JOY_BASE_R, 0, Math.PI * 2);
+    joyCtx.fillStyle   = 'rgba(255,255,255,0.08)';
+    joyCtx.fill();
+    joyCtx.strokeStyle = 'rgba(255,255,255,0.35)';
+    joyCtx.lineWidth   = 3;
+    joyCtx.stroke();
+
+    // Thumb
+    joyCtx.beginPath();
+    joyCtx.arc(joy.thumbX, joy.thumbY, JOY_THUMB_R, 0, Math.PI * 2);
+    joyCtx.fillStyle = 'rgba(255,215,0,0.85)';
+    joyCtx.fill();
+  } else {
+    // Idle hint — faint circle in centre
+    const cx = JOY_W / 2, cy = JOY_H / 2;
+    joyCtx.beginPath();
+    joyCtx.arc(cx, cy, JOY_BASE_R, 0, Math.PI * 2);
+    joyCtx.fillStyle   = 'rgba(255,255,255,0.04)';
+    joyCtx.fill();
+    joyCtx.strokeStyle = 'rgba(255,255,255,0.15)';
+    joyCtx.lineWidth   = 2;
+    joyCtx.stroke();
+
+    // Draw faint arrow hints
+    const arrs = [
+      [cx,       cy-32,  0],
+      [cx,       cy+32,  Math.PI],
+      [cx-32,    cy,     -Math.PI/2],
+      [cx+32,    cy,     Math.PI/2],
+    ];
+    arrs.forEach(([ax, ay, angle]) => {
+      joyCtx.save();
+      joyCtx.translate(ax, ay);
+      joyCtx.rotate(angle);
+      joyCtx.beginPath();
+      joyCtx.moveTo(0, -10);
+      joyCtx.lineTo(-8, 6);
+      joyCtx.lineTo(8, 6);
+      joyCtx.closePath();
+      joyCtx.fillStyle = 'rgba(255,255,0,0.3)';
+      joyCtx.fill();
+      joyCtx.restore();
+    });
+  }
 }
 
 if (joyCanvas) {
-  drawDpad();
+  drawJoystick();
 
   joyCanvas.addEventListener('touchstart', e => {
     e.preventDefault();
@@ -820,20 +845,48 @@ if (joyCanvas) {
       if (gameState === STATE.GAME_OVER) initGame();
       gameState = STATE.PLAYING;
     }
-    const t = e.touches[0];
-    const d = getDpadDir(t.clientX, t.clientY, joyCanvas.getBoundingClientRect());
-    if (d) pacman.nextDir = d;
+    const t   = e.touches[0];
+    const pos = clientToCanvas(t.clientX, t.clientY, joyCanvas.getBoundingClientRect());
+    joy.active = true;
+    joy.baseX  = pos.x;
+    joy.baseY  = pos.y;
+    joy.thumbX = pos.x;
+    joy.thumbY = pos.y;
+    drawJoystick();
   }, { passive: false });
 
   joyCanvas.addEventListener('touchmove', e => {
     e.preventDefault();
-    const t = e.touches[0];
-    const d = getDpadDir(t.clientX, t.clientY, joyCanvas.getBoundingClientRect());
-    if (d) pacman.nextDir = d;
+    if (!joy.active) return;
+    const t   = e.touches[0];
+    const pos = clientToCanvas(t.clientX, t.clientY, joyCanvas.getBoundingClientRect());
+    const dx  = pos.x - joy.baseX;
+    const dy  = pos.y - joy.baseY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Clamp thumb inside base ring
+    const clamp = Math.min(dist, JOY_BASE_R);
+    joy.thumbX = joy.baseX + (dist > 0 ? dx / dist * clamp : 0);
+    joy.thumbY = joy.baseY + (dist > 0 ? dy / dist * clamp : 0);
+
+    if (dist > JOY_DEAD) pacman.nextDir = dirFromDelta(dx, dy);
+    drawJoystick();
+  }, { passive: false });
+
+  joyCanvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    joy.active = false;
+    drawJoystick();
+  }, { passive: false });
+
+  joyCanvas.addEventListener('touchcancel', e => {
+    e.preventDefault();
+    joy.active = false;
+    drawJoystick();
   }, { passive: false });
 }
 
-// Tap canvas to start
+// Tap game canvas to start
 canvas.addEventListener('touchstart', e => {
   if (gameState === STATE.READY || gameState === STATE.GAME_OVER) {
     e.preventDefault();
