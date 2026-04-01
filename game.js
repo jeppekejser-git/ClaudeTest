@@ -172,6 +172,11 @@ function updatePacman(dt) {
   if (isWalkable(newCol, newRow, false)) {
     p.x = nx;
     p.y = ny;
+  } else {
+    // Blocked by wall — snap to current tile centre so the turn-check
+    // can fire next frame (prevents getting stuck between tile centres).
+    p.x = cx;
+    p.y = cy;
   }
 
   // Tunnel wrapping
