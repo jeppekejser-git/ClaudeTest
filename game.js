@@ -755,26 +755,92 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Touch support
-let touchStartX = 0, touchStartY = 0;
+// ─── D-Pad Joystick ───────────────────────────────────────────────────────────
+const joyCanvas = document.getElementById('joystickCanvas');
+const joyCtx = joyCanvas ? joyCanvas.getContext('2d') : null;
+const JOY_SIZE = 220;
+const JOY_CENTER = JOY_SIZE / 2;
+const JOY_ZONE = JOY_SIZE / 3; // dead-zone radius
+
+function drawDpad() {
+  if (!joyCtx) return;
+  joyCtx.clearRect(0, 0, JOY_SIZE, JOY_SIZE);
+
+  const cx = JOY_CENTER, cy = JOY_CENTER;
+  const r = JOY_SIZE / 2 - 4;
+  const arrowSize = 30;
+  const arrowPad = 18;
+
+  // Background circle
+  joyCtx.beginPath();
+  joyCtx.arc(cx, cy, r, 0, Math.PI * 2);
+  joyCtx.fillStyle = 'rgba(255,255,255,0.08)';
+  joyCtx.fill();
+  joyCtx.strokeStyle = 'rgba(255,255,255,0.2)';
+  joyCtx.lineWidth = 2;
+  joyCtx.stroke();
+
+  // Draw 4 arrow triangles
+  const arrows = [
+    { dir: 'UP',    ax: cx, ay: arrowPad + arrowSize/2,
+      pts: [[cx, arrowPad], [cx - arrowSize/2, arrowPad + arrowSize], [cx + arrowSize/2, arrowPad + arrowSize]] },
+    { dir: 'DOWN',  ax: cx, ay: JOY_SIZE - arrowPad - arrowSize/2,
+      pts: [[cx, JOY_SIZE - arrowPad], [cx - arrowSize/2, JOY_SIZE - arrowPad - arrowSize], [cx + arrowSize/2, JOY_SIZE - arrowPad - arrowSize]] },
+    { dir: 'LEFT',  ax: arrowPad + arrowSize/2, ay: cy,
+      pts: [[arrowPad, cy], [arrowPad + arrowSize, cy - arrowSize/2], [arrowPad + arrowSize, cy + arrowSize/2]] },
+    { dir: 'RIGHT', ax: JOY_SIZE - arrowPad - arrowSize/2, ay: cy,
+      pts: [[JOY_SIZE - arrowPad, cy], [JOY_SIZE - arrowPad - arrowSize, cy - arrowSize/2], [JOY_SIZE - arrowPad - arrowSize, cy + arrowSize/2]] },
+  ];
+
+  arrows.forEach(({ pts }) => {
+    joyCtx.beginPath();
+    joyCtx.moveTo(pts[0][0], pts[0][1]);
+    joyCtx.lineTo(pts[1][0], pts[1][1]);
+    joyCtx.lineTo(pts[2][0], pts[2][1]);
+    joyCtx.closePath();
+    joyCtx.fillStyle = 'rgba(255,255,0,0.7)';
+    joyCtx.fill();
+  });
+}
+
+function getDpadDir(touchX, touchY, rect) {
+  const x = touchX - rect.left - JOY_CENTER;
+  const y = touchY - rect.top  - JOY_CENTER;
+  if (Math.abs(x) < 10 && Math.abs(y) < 10) return null;
+  if (Math.abs(x) > Math.abs(y)) return x > 0 ? DIR.RIGHT : DIR.LEFT;
+  return y > 0 ? DIR.DOWN : DIR.UP;
+}
+
+if (joyCanvas) {
+  drawDpad();
+
+  joyCanvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (gameState === STATE.READY || gameState === STATE.GAME_OVER) {
+      if (gameState === STATE.GAME_OVER) initGame();
+      gameState = STATE.PLAYING;
+    }
+    const t = e.touches[0];
+    const d = getDpadDir(t.clientX, t.clientY, joyCanvas.getBoundingClientRect());
+    if (d) pacman.nextDir = d;
+  }, { passive: false });
+
+  joyCanvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const d = getDpadDir(t.clientX, t.clientY, joyCanvas.getBoundingClientRect());
+    if (d) pacman.nextDir = d;
+  }, { passive: false });
+}
+
+// Tap canvas to start
 canvas.addEventListener('touchstart', e => {
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
   if (gameState === STATE.READY || gameState === STATE.GAME_OVER) {
+    e.preventDefault();
     if (gameState === STATE.GAME_OVER) initGame();
     gameState = STATE.PLAYING;
   }
-}, { passive: true });
-
-canvas.addEventListener('touchend', e => {
-  const dx = e.changedTouches[0].clientX - touchStartX;
-  const dy = e.changedTouches[0].clientY - touchStartY;
-  if (Math.abs(dx) > Math.abs(dy)) {
-    pacman.nextDir = dx > 0 ? DIR.RIGHT : DIR.LEFT;
-  } else {
-    pacman.nextDir = dy > 0 ? DIR.DOWN : DIR.UP;
-  }
-}, { passive: true });
+}, { passive: false });
 
 // ─── Game Loop ────────────────────────────────────────────────────────────────
 function gameLoop(timestamp) {
