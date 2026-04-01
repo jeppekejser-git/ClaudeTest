@@ -1,0 +1,92 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+}
+
+html, body {
+  background: #000;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  font-family: 'Courier New', monospace;
+  color: #fff;
+}
+
+#game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  /* Scale to fit viewport — JS will set transform */
+  transform-origin: top center;
+}
+
+#hud {
+  display: flex;
+  justify-content: space-between;
+  width: 560px;
+  padding: 4px 8px;
+}
+
+#score-display,
+#lives-display,
+#level-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.hud-label {
+  font-size: 10px;
+  color: #ffff00;
+  letter-spacing: 1px;
+}
+
+#score,
+#level {
+  font-size: 14px;
+  color: #fff;
+  min-width: 60px;
+  text-align: center;
+}
+
+#lives-icons {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 20px;
+}
+
+#high-score-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+#high-score {
+  font-size: 14px;
+  color: #fff;
+}
+
+#gameCanvas {
+  display: block;
+  border: 2px solid #1a1aff;
+  background: #000;
+}
+
+#joystickCanvas {
+  display: block;
+  cursor: pointer;
+  margin-top: 8px;
+  border-radius: 50%;
+}
