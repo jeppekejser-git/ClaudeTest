@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+  <!-- PWA / iOS home screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pacman">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#000000">
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <title>Pacman</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game-container">
+    <div id="hud">
+      <div id="score-display">
+        <span class="hud-label">SCORE</span>
+        <span id="score">0</span>
+      </div>
+      <div id="lives-display">
+        <span class="hud-label">LIVES</span>
+        <span id="lives-icons"></span>
+      </div>
+      <div id="level-display">
+        <span class="hud-label">LEVEL</span>
+        <span id="level">1</span>
+      </div>
+    </div>
+    <canvas id="gameCanvas" width="560" height="620"></canvas>
+    <div id="high-score-display">
+      <span class="hud-label">HIGH SCORE</span>
+      <span id="high-score">0</span>
+    </div>
+    <canvas id="joystickCanvas" width="220" height="220"></canvas>
+  </div>
+
+  <script>
+    // Register service worker for offline/PWA support
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+    // Scale game container to fit viewport
+    function scaleGame() {
+      const container = document.getElementById('game-container');
+      if (!container) return;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const naturalW = 560;
+      const naturalH = 220 + 620 + 80 + 220 + 40; // hud+canvas+highscore+joystick+gaps
+      const scale = Math.min(vw / naturalW, vh / naturalH, 1);
+      container.style.transform = `scale(${scale})`;
+      container.style.transformOrigin = 'top center';
+    }
+    window.addEventListener('resize', scaleGame);
+    window.addEventListener('load', scaleGame);
+  </script>
+  <script src="game.js"></script>
+</body>
+</html>
