@@ -161,20 +161,21 @@ function updatePacman(dt) {
     }
   }
 
-  // Move
+  // Move — check the leading edge (centre + radius) not just the centre,
+  // so Pacman stops flush with the wall instead of clipping into it.
   const nx = p.x + p.dir.dx * speed;
   const ny = p.y + p.dir.dy * speed;
-
-  // Tunnel wrap (row 14)
-  const newCol = Math.floor(nx / TILE);
-  const newRow = Math.floor(ny / TILE);
+  const ledge = TILE / 2 - 1;
+  const checkX = nx + p.dir.dx * ledge;
+  const checkY = ny + p.dir.dy * ledge;
+  const newCol = Math.floor(checkX / TILE);
+  const newRow = Math.floor(checkY / TILE);
 
   if (isWalkable(newCol, newRow, false)) {
     p.x = nx;
     p.y = ny;
   } else {
-    // Blocked by wall — snap to current tile centre so the turn-check
-    // can fire next frame (prevents getting stuck between tile centres).
+    // Blocked — snap to tile centre so the turn-check fires next frame.
     p.x = cx;
     p.y = cy;
   }
@@ -381,13 +382,20 @@ function updateGhost(ghost, i, dt) {
   if (nx < 0) { ghost.x = COLS * TILE; return; }
   if (nx > COLS * TILE) { ghost.x = 0; return; }
 
-  const nc = Math.floor(nx / TILE);
-  const nr = Math.floor(ny / TILE);
+  // Check leading edge so ghosts stop flush with walls (not clipping in).
+  const gledge = TILE / 2 - 1;
+  const gcx = nx + ghost.dir.dx * gledge;
+  const gcy = ny + ghost.dir.dy * gledge;
+  const nc = Math.floor(gcx / TILE);
+  const nr = Math.floor(gcy / TILE);
   if (isWalkable(nc, nr, true)) {
     ghost.x = nx;
     ghost.y = ny;
   } else {
-    // Stuck: pick new direction
+    // Snap to tile centre (same fix as Pacman) so the next decision
+    // is made from a clean position, then pick a new direction.
+    ghost.x = cx;
+    ghost.y = cy;
     const target = ghostTarget(ghost, i);
     ghost.dir = ghostBestDir(ghost, target, true);
   }
